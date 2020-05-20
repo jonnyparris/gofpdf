@@ -51,6 +51,7 @@ func (f *Fpdf) SVGBasicWrite(sb *SVGBasicType, scale float64) {
 				x, y = val(0)
 				startX, startY = x, y
 				f.SetXY(x, y)
+				f.outf("%.2f %.2f m", x*f.k, (f.h-y)*f.k)
 			case 'L':
 				newX, newY = val(0)
 				f.Line(x, y, newX, newY)
@@ -75,11 +76,17 @@ func (f *Fpdf) SVGBasicWrite(sb *SVGBasicType, scale float64) {
 				f.Line(x, y, x, newY)
 				y = newY
 			case 'Z':
-				f.Line(x, y, startX, startY)
+				f.ClosingLine(x, y, startX, startY)
 				x, y = startX, startY
 			default:
 				f.SetErrorf("Unexpected path command '%c'", seg.Cmd)
 			}
 		}
+		// TODO
+		// if pathIsFilled {
+		// 	f.outf(" f")
+		// } else {
+		// 	f.outf(" S")
+		// }
 	}
 }
