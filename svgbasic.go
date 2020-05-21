@@ -210,6 +210,18 @@ type fillState struct {
 	b            int
 }
 
+func parseRGBFromString(rawString string) (r, g, b int, err error) {
+	rgbr := regexp.MustCompile(`rgb\(*([0-9]+),*([0-9]+),*([0-9]+)\)`)
+	colors := rgbr.FindStringSubmatch(rawString)
+	r, err = strconv.Atoi(colors[1])
+	g, err = strconv.Atoi(colors[2])
+	b, err = strconv.Atoi(colors[3])
+	if err != nil {
+		return r, g, b, err
+	}
+	return r, g, b, nil
+}
+
 // Parse style tags on path e.g. style="stroke: rgb(0,0,0); stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-dashoffset: 0; stroke-linejoin: miter; stroke-miterlimit: 4; fill: rgb(0,0,0); fill-rule: nonzero; opacity: 1;"
 func getFillState(style string) (fs fillState, err error) {
 	rules := strings.Split(style, ";")
@@ -217,28 +229,12 @@ func getFillState(style string) (fs fillState, err error) {
 	for _, rule := range rules {
 		parsedRule := strings.Split(rule, ":")
 		key := strings.TrimSpace(parsedRule[0])
-		if key == "fill" {
+		switch key {
+		case "fill":
 			fs.isFilled = true
 			fillColor := strings.TrimSpace(parsedRule[1])
-			rgbr := regexp.MustCompile(`rgb\(*([0-9]+),*([0-9]+),*([0-9]+)\)`)
-			colors := rgbr.FindStringSubmatch(fillColor)
-			r, err := strconv.Atoi(colors[1])
-			if err != nil {
-				return fs, err
-			}
-			fs.r = r
-			g, err := strconv.Atoi(colors[2])
-			if err != nil {
-				return fs, err
-			}
-			fs.g = g
-			b, err := strconv.Atoi(colors[3])
-			if err != nil {
-				return fs, err
-			}
-			fs.b = b
-		}
-		if key == "fill-rule" {
+			fs.r, fs.g, fs.b, err = parseRGBFromString(fillColor)
+		case "fill-rule":
 			fs.isFilled = true
 			fs.fillStrategy = strings.TrimSpace(parsedRule[1])
 		}
