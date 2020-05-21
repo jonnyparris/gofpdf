@@ -20,6 +20,7 @@ import (
 	"encoding/xml"
 	"fmt"
 	"io/ioutil"
+	"regexp"
 	"strconv"
 	"strings"
 )
@@ -189,11 +190,65 @@ func pathParse(pathStr string) (segs []SVGBasicSegmentType, err error) {
 	return
 }
 
+type EnhancedSegment struct {
+	Commands  []SVGBasicSegmentType
+	FillState fillState
+}
+
 // SVGBasicType aggregates the information needed to describe a multi-segment
 // basic vector image
 type SVGBasicType struct {
 	Wd, Ht   float64
-	Segments [][]SVGBasicSegmentType
+	Segments []EnhancedSegment
+}
+
+type fillState struct {
+	isFilled     bool
+	fillStrategy string
+	r            int
+	g            int
+	b            int
+}
+
+// Parse style tags on path e.g. style="stroke: rgb(0,0,0); stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-dashoffset: 0; stroke-linejoin: miter; stroke-miterlimit: 4; fill: rgb(0,0,0); fill-rule: nonzero; opacity: 1;"
+func getFillState(style string) (fs fillState, err error) {
+	rules := strings.Split(style, ";")
+	fs.isFilled = false
+	for _, rule := range rules {
+		parsedRule := strings.Split(rule, ":")
+		key := strings.TrimSpace(parsedRule[0])
+		if key == "fill" {
+			fs.isFilled = true
+			fillColor := strings.TrimSpace(parsedRule[1])
+			rgbr := regexp.MustCompile(`rgb\(*([0-9]+),*([0-9]+),*([0-9]+)\)`)
+			colors := rgbr.FindStringSubmatch(fillColor)
+			r, err := strconv.Atoi(colors[1])
+			if err != nil {
+				return fs, err
+			}
+			fs.r = r
+			g, err := strconv.Atoi(colors[2])
+			if err != nil {
+				return fs, err
+			}
+			fs.g = g
+			b, err := strconv.Atoi(colors[3])
+			if err != nil {
+				return fs, err
+			}
+			fs.b = b
+		}
+		if key == "fill-rule" {
+			fs.isFilled = true
+			fs.fillStrategy = strings.TrimSpace(parsedRule[1])
+		}
+	}
+	return fs, err
+}
+
+type pathType struct {
+	D     string `xml:"d,attr"`
+	Style string `xml:"style,attr"`
 }
 
 // SVGBasicParse parses a simple scalable vector graphics (SVG) buffer into a
@@ -204,9 +259,6 @@ type SVGBasicType struct {
 // x1,y1), 'Q' (absolute quadratic Bézier curve: x0, y0, x1, y1) and 'Z'
 // (closepath).
 func SVGBasicParse(buf []byte) (sig SVGBasicType, err error) {
-	type pathType struct {
-		D string `xml:"d,attr"`
-	}
 	type srcType struct {
 		Wd    float64    `xml:"width,attr"`
 		Ht    float64    `xml:"height,attr"`
@@ -220,9 +272,14 @@ func SVGBasicParse(buf []byte) (sig SVGBasicType, err error) {
 			var segs []SVGBasicSegmentType
 			for _, path := range src.Paths {
 				if err == nil {
+					fillState, err := getFillState(path.Style)
+					if err != nil {
+						return sig, err
+					}
 					segs, err = pathParse(path.D)
 					if err == nil {
-						sig.Segments = append(sig.Segments, segs)
+						newSeg := EnhancedSegment{FillState: fillState, Commands: segs}
+						sig.Segments = append(sig.Segments, newSeg)
 					}
 				}
 			}

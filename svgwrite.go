@@ -43,7 +43,11 @@ func (f *Fpdf) SVGBasicWrite(sb *SVGBasicType, scale float64) {
 		return xval(arg), yval(arg + 1)
 	}
 	for j := 0; j < len(sb.Segments) && f.Ok(); j++ {
-		path = sb.Segments[j]
+		path = sb.Segments[j].Commands
+		fs := sb.Segments[j].FillState
+		if fs.isFilled {
+			f.SetFillColor(fs.r, fs.g, fs.b)
+		}
 		for k := 0; k < len(path) && f.Ok(); k++ {
 			seg = path[k]
 			switch seg.Cmd {
@@ -51,6 +55,7 @@ func (f *Fpdf) SVGBasicWrite(sb *SVGBasicType, scale float64) {
 				x, y = val(0)
 				startX, startY = x, y
 				f.SetXY(x, y)
+				f.outf("%.2f %.2f m", x*f.k, (f.h-y)*f.k)
 			case 'L':
 				newX, newY = val(0)
 				f.Line(x, y, newX, newY)
@@ -75,11 +80,21 @@ func (f *Fpdf) SVGBasicWrite(sb *SVGBasicType, scale float64) {
 				f.Line(x, y, x, newY)
 				y = newY
 			case 'Z':
-				f.Line(x, y, startX, startY)
+				f.ClosingLine(x, y, startX, startY)
 				x, y = startX, startY
 			default:
 				f.SetErrorf("Unexpected path command '%c'", seg.Cmd)
 			}
+		}
+		if fs.isFilled {
+			switch fs.fillStrategy {
+			case "evenodd":
+				f.outf(" f*")
+			default:
+				f.outf(" f")
+			}
+		} else {
+			f.outf(" S")
 		}
 	}
 }

@@ -1083,7 +1083,11 @@ func (f *Fpdf) outputDashPattern() {
 // Line draws a line between points (x1, y1) and (x2, y2) using the current
 // draw color, line width and cap style.
 func (f *Fpdf) Line(x1, y1, x2, y2 float64) {
-	f.outf("%.2f %.2f m %.2f %.2f l S", x1*f.k, (f.h-y1)*f.k, x2*f.k, (f.h-y2)*f.k)
+	f.outf("%.2f %.2f l", x2*f.k, (f.h-y2)*f.k)
+}
+
+func (f *Fpdf) ClosingLine(x1, y1, x2, y2 float64) {
+	f.outf(" h")
 }
 
 // fillDrawOp corrects path painting operators
@@ -1298,9 +1302,8 @@ func (f *Fpdf) CurveCubic(x0, y0, cx0, cy0, x1, y1, cx1, cy1 float64, styleStr s
 //
 // The Circle() example demonstrates this method.
 func (f *Fpdf) CurveBezierCubic(x0, y0, cx0, cy0, cx1, cy1, x1, y1 float64, styleStr string) {
-	f.point(x0, y0)
 	f.outf("%.5f %.5f %.5f %.5f %.5f %.5f c %s", cx0*f.k, (f.h-cy0)*f.k,
-		cx1*f.k, (f.h-cy1)*f.k, x1*f.k, (f.h-y1)*f.k, fillDrawOp(styleStr))
+		cx1*f.k, (f.h-cy1)*f.k, x1*f.k, (f.h-y1)*f.k)
 }
 
 // Arc draws an elliptical arc centered at point (x, y). rx and ry specify its
