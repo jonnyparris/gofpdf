@@ -1087,8 +1087,7 @@ func (f *Fpdf) Line(x1, y1, x2, y2 float64) {
 }
 
 func (f *Fpdf) ClosingLine(x1, y1, x2, y2 float64) {
-	f.outf(" h f ")
-	// TODO set style string depending on style attribute of svg path
+	f.outf(" h")
 }
 
 // fillDrawOp corrects path painting operators
